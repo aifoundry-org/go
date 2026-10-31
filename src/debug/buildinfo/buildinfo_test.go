@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"debug/buildinfo"
 	"debug/pe"
+	"debug/plan9obj"
 	"encoding/binary"
 	"flag"
 	"fmt"
@@ -24,6 +25,37 @@ import (
 )
 
 var flagAll = flag.Bool("all", false, "test all supported GOOS/GOARCH platforms, instead of only the current platform")
+
+func TestReadPlan9RISCV64(t *testing.T) {
+	t.Parallel()
+	const version = "go1.27.2"
+	data := make([]byte, 32)
+	copy(data, "\xff Go buildinf:")
+	data[14] = 8
+	data[15] = 2 // Version and module strings are inline.
+	data = binary.AppendUvarint(data, uint64(len(version)))
+	data = append(data, version...)
+	data = binary.AppendUvarint(data, 0) // Empty module information.
+	data = append(data, make([]byte, 16)...)
+
+	// A 40-byte expanded header and eight text bytes put the data section
+	// at a 16-byte-aligned offset, as required for the build info header.
+	image := make([]byte, 48)
+	binary.BigEndian.PutUint32(image[0:], plan9obj.MagicRISCV64)
+	binary.BigEndian.PutUint32(image[4:], 8)
+	binary.BigEndian.PutUint32(image[8:], uint32(len(data)))
+	binary.BigEndian.PutUint32(image[20:], 40)
+	binary.BigEndian.PutUint64(image[32:], 0x1000000028)
+	image = append(image, data...)
+
+	info, err := buildinfo.Read(bytes.NewReader(image))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.GoVersion != version {
+		t.Errorf("GoVersion = %q, want %q", info.GoVersion, version)
+	}
+}
 
 // TestReadFile confirms that ReadFile can read build information from binaries
 // on supported target platforms. It builds a trivial binary on the current

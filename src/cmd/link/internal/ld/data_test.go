@@ -8,9 +8,57 @@ import (
 	"cmd/internal/objabi"
 	"cmd/internal/sys"
 	"cmd/link/internal/loader"
+	"cmd/link/internal/sym"
+	"fmt"
 	"internal/buildcfg"
 	"testing"
 )
+
+func TestPlan9RISCV64TextAlignment(t *testing.T) {
+	// textaddress uses linker-wide state, so this test cannot run in parallel.
+	oldArch, oldText, oldAlign, oldThearch := buildcfg.GOARCH, Segtext, Funcalign, thearch
+	oldTextAddr, oldRandLayout := *FlagTextAddr, *flagRandLayout
+	defer func() {
+		buildcfg.GOARCH, Segtext, Funcalign, thearch = oldArch, oldText, oldAlign, oldThearch
+		*FlagTextAddr, *flagRandLayout = oldTextAddr, oldRandLayout
+	}()
+	buildcfg.GOARCH = "riscv64"
+	Funcalign = 8
+	thearch = Arch{}
+	*FlagTextAddr = 0x1000000028
+	*flagRandLayout = 0
+
+	for _, align := range []int32{8, 16, 32} {
+		t.Run(fmt.Sprintf("align%d", align), func(t *testing.T) {
+			Segtext = sym.Segment{}
+			ctxt := setUpContext(sys.ArchRISCV64, false, objabi.Hplan9, "exe", "internal")
+			ctxt.Loaded = true
+			ldr := ctxt.loader
+			for _, name := range []string{"first", "aligned"} {
+				s := ldr.CreateSymForUpdate(name, 0)
+				s.SetType(sym.STEXT)
+				s.SetSize(8)
+				if name == "aligned" {
+					s.SetAlign(align)
+				}
+				ctxt.Textp = append(ctxt.Textp, s.Sym())
+			}
+			ctxt.textaddress()
+			sect := Segtext.Sections[0]
+			text := ldr.SymValue(ldr.Lookup("runtime.text", 0))
+			// address will round the section base to sect.Align. It must
+			// still equal runtime.text, or R_METHODOFF and pclntab offsets
+			// will be relative to different bases.
+			want := Rnd(*FlagTextAddr, int64(sect.Align))
+			if text != want || int64(sect.Vaddr) != want {
+				t.Fatalf("runtime.text = %#x, section = %#x; want %#x", text, sect.Vaddr, want)
+			}
+			if sect.Align != align {
+				t.Errorf("section alignment = %d, want %d", sect.Align, align)
+			}
+		})
+	}
+}
 
 func setUpContext(arch *sys.Arch, iself bool, ht objabi.HeadType, bm, lm string) *Link {
 	ctxt := linknew(arch)

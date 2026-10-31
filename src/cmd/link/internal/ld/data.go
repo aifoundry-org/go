@@ -2726,7 +2726,17 @@ func (ctxt *Link) textaddress() {
 		ctxt.Textp[0] = text
 	}
 
-	start := uint64(Rnd(*FlagTextAddr, int64(Funcalign)))
+	if ctxt.IsPlan9() && ctxt.IsRISCV64() {
+		// The 40-byte Plan 9 header leaves the text address only
+		// 8-byte aligned. PCALIGN directives may give text symbols a
+		// larger alignment. Account for that before assigning PCs,
+		// otherwise address would move the section base without moving
+		// runtime.text or the functions, invalidating method offsets.
+		for _, s := range ctxt.Textp {
+			sect.Align = max(sect.Align, ldr.SymAlign(s))
+		}
+	}
+	start := uint64(Rnd(*FlagTextAddr, int64(sect.Align)))
 	va := start
 	n := 1
 	sect.Vaddr = va

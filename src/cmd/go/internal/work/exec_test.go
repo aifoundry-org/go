@@ -8,12 +8,47 @@ import (
 	"bytes"
 	"cmd/internal/objabi"
 	"cmd/internal/sys"
+	"debug/plan9obj"
+	"encoding/binary"
 	"fmt"
 	"math/rand"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 	"unicode/utf8"
 )
+
+func TestPlan9ObjectMagic(t *testing.T) {
+	t.Parallel()
+	for _, tt := range []struct {
+		name  string
+		magic uint32
+		want  bool
+	}{
+		{"386", plan9obj.Magic386, true},
+		{"amd64", plan9obj.MagicAMD64, true},
+		{"arm", plan9obj.MagicARM, true},
+		{"riscv64", plan9obj.MagicRISCV64, true},
+		{"riscv64 without expanded header", plan9obj.MagicRISCV64 &^ plan9obj.Magic64, false},
+		{"unknown", 0x12345678, false},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			header := make([]byte, 64)
+			binary.BigEndian.PutUint32(header, tt.magic)
+			name := filepath.Join(t.TempDir(), "output")
+			if err := os.WriteFile(name, header, 0600); err != nil {
+				t.Fatal(err)
+			}
+			if got := isObject(name); got != tt.want {
+				t.Errorf("isObject = %v, want %v", got, tt.want)
+			}
+			if err := checkDstOverwrite(name, false); (err == nil) != tt.want {
+				t.Errorf("checkDstOverwrite = %v, want success: %v", err, tt.want)
+			}
+		})
+	}
+}
 
 func TestEncodeArgs(t *testing.T) {
 	t.Parallel()

@@ -30,7 +30,8 @@ type sym struct {
 const (
 	Magic64 = 0x8000 // 64-bit expanded header
 
-	Magic386   = (4*11+0)*11 + 7
-	MagicAMD64 = (4*26+0)*26 + 7 + Magic64
-	MagicARM   = (4*20+0)*20 + 7
+	Magic386     = (4*11+0)*11 + 7
+	MagicAMD64   = (4*26+0)*26 + 7 + Magic64
+	MagicARM     = (4*20+0)*20 + 7
+	MagicRISCV64 = (4*30+0)*30 + 7 + Magic64
 )

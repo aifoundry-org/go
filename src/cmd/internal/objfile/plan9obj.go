@@ -137,11 +137,16 @@ func (f *plan9File) goarch() string {
 		return "amd64"
 	case plan9obj.MagicARM:
 		return "arm"
+	case plan9obj.MagicRISCV64:
+		return "riscv64"
 	}
 	return ""
 }
 
 func (f *plan9File) loadAddress() (uint64, error) {
+	if f.plan9.Magic == plan9obj.MagicRISCV64 {
+		return f.plan9.LoadAddress, nil
+	}
 	return 0, fmt.Errorf("unknown load address")
 }
 

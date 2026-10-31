@@ -130,7 +130,7 @@ func (f *File) Close() error {
 func parseMagic(magic []byte) (uint32, error) {
 	m := binary.BigEndian.Uint32(magic)
 	switch m {
-	case Magic386, MagicAMD64, MagicARM:
+	case Magic386, MagicAMD64, MagicARM, MagicRISCV64:
 		return m, nil
 	}
 	return 0, &formatError{0, "bad magic number", magic}
@@ -171,6 +171,9 @@ func NewFile(r io.ReaderAt) (*File, error) {
 		f.PtrSize = 8
 		f.LoadAddress = 0x200000
 		f.HdrSize += 8
+	}
+	if ph.Magic == MagicRISCV64 {
+		f.LoadAddress = 0x1000000000
 	}
 
 	var sects = []struct {

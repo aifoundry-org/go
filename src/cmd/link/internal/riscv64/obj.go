@@ -20,6 +20,10 @@ func Init() (*sys.Arch, ld.Arch) {
 		Dwarfregsp: dwarfRegSP,
 		Dwarfreglr: dwarfRegLR,
 
+		// B_MAGIC, _MAGIC(HDR_MAGIC, 30) in 9front's a.out.h.
+		Plan9Magic:  uint32(4*30*30 + 7),
+		Plan9_64Bit: true,
+
 		Adddynrel:        adddynrel,
 		Archinit:         archinit,
 		Archreloc:        archreloc,
@@ -58,6 +62,17 @@ func Init() (*sys.Arch, ld.Arch) {
 
 func archinit(ctxt *ld.Link) {
 	switch ctxt.HeadType {
+	case objabi.Hplan9: /* plan 9 */
+		// a.out with the 64-bit header: text, header included,
+		// at the kernel's UTZERO; data on the next page.
+		ld.HEADR = 32 + 8
+		if *ld.FlagRound == -1 {
+			*ld.FlagRound = 0x1000
+		}
+		if *ld.FlagTextAddr == -1 {
+			*ld.FlagTextAddr = ld.Rnd(0x1000000000, *ld.FlagRound) + int64(ld.HEADR)
+		}
+
 	case objabi.Hlinux, objabi.Hfreebsd, objabi.Hopenbsd:
 		ld.Elfinit(ctxt)
 		ld.HEADR = ld.ELFRESERVE

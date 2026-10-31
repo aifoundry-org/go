@@ -72,7 +72,9 @@ const (
 	// to each stack below the usual guard area for OS-specific
 	// purposes like signal handling. Used on Windows, Plan 9,
 	// and iOS because they do not use a separate stack.
-	stackSystem = goos.IsWindows*4096 + goos.IsPlan9*512 + goos.IsIos*goarch.IsArm64*1024
+	// On riscv64 Plan 9 the kernel's notify pushes 256 bytes of slack,
+	// a 304-byte Ureg and the note (ERRMAX) below the stack pointer.
+	stackSystem = goos.IsWindows*4096 + goos.IsPlan9*512 + goos.IsPlan9*goarch.IsRiscv64*512 + goos.IsIos*goarch.IsArm64*1024
 
 	// The minimum size of stack used by Go code
 	stackMin = 2048

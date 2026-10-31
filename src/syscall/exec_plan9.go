@@ -204,8 +204,9 @@ dirloop:
 
 	// Write new environment variables.
 	if envv != nil {
+		ca2, ca3 := createArgs(O_WRONLY, 0666)
 		for i = 0; i < len(envv); i++ {
-			r1, _, _ = RawSyscall(SYS_CREATE, uintptr(unsafe.Pointer(envv[i].name)), uintptr(O_WRONLY), uintptr(0666))
+			r1, _, _ = RawSyscall(SYS_CREATE, uintptr(unsafe.Pointer(envv[i].name)), ca2, ca3)
 
 			if int32(r1) == -1 {
 				goto childerror
@@ -239,7 +240,8 @@ dirloop:
 	// Pass 1: look for fd[i] < i and move those up above len(fd)
 	// so that pass 2 won't stomp on an fd it needs later.
 	if pipe < nextfd {
-		r1, _, _ = RawSyscall(SYS_DUP, uintptr(pipe), uintptr(nextfd), 0)
+		da1, da2 := dupArgs(pipe, nextfd)
+		r1, _, _ = RawSyscall(SYS_DUP, da1, da2, 0)
 		if int32(r1) == -1 {
 			goto childerror
 		}
@@ -251,7 +253,8 @@ dirloop:
 			if nextfd == pipe { // don't stomp on pipe
 				nextfd++
 			}
-			r1, _, _ = RawSyscall(SYS_DUP, uintptr(fd[i]), uintptr(nextfd), 0)
+			da1, da2 := dupArgs(fd[i], nextfd)
+			r1, _, _ = RawSyscall(SYS_DUP, da1, da2, 0)
 			if int32(r1) == -1 {
 				goto childerror
 			}
@@ -270,7 +273,8 @@ dirloop:
 		if fd[i] == i {
 			continue
 		}
-		r1, _, _ = RawSyscall(SYS_DUP, uintptr(fd[i]), uintptr(i), 0)
+		da1, da2 := dupArgs(fd[i], i)
+		r1, _, _ = RawSyscall(SYS_DUP, da1, da2, 0)
 		if int32(r1) == -1 {
 			goto childerror
 		}
